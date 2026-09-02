@@ -20,6 +20,7 @@ import {
   Sparkles,
   Menu,
   X,
+  PackageCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -30,6 +31,7 @@ const NAV = [
   { href: "/app/scanner", label: "ATS Scanner", icon: ScanSearch },
   { href: "/app/jobs", label: "Job Board", icon: Briefcase },
   { href: "/app/auto-apply", label: "Auto-Apply", icon: Rocket },
+  { href: "/app/packages", label: "Apply packages", icon: PackageCheck },
   { href: "/app/tracker", label: "Tracker", icon: Kanban },
   { href: "/app/interview", label: "Mock Interview", icon: MessagesSquare },
   { href: "/app/buddy", label: "Interview Buddy", icon: Headphones },

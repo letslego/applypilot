@@ -15,7 +15,7 @@ import { DocumentsSelect } from "@/components/documents-shared";
 import type { ResumeContent } from "@/data/demo-resume";
 import { DEMO_RESUME } from "@/data/demo-resume";
 import { formatDate } from "@/lib/utils";
-import { Languages, Loader2, Printer, Save, Sparkles, Wand2, X } from "lucide-react";
+import { Languages, Loader2, Printer, Save, Sparkles, Wand2, X, Import } from "lucide-react";
 
 type ResumeRow = {
   id: string;
@@ -58,6 +58,8 @@ export default function ResumeBuilderPage() {
   const [error, setError] = useState<string | null>(null);
   const [tailorJobId, setTailorJobId] = useState("");
   const [translateLang, setTranslateLang] = useState("es");
+  const [showImport, setShowImport] = useState(false);
+  const [importText, setImportText] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -208,6 +210,35 @@ export default function ResumeBuilderPage() {
     }
   }
 
+  async function importLinkedIn() {
+    setBusy("import");
+    setError(null);
+    setMessage(null);
+    try {
+      const res = await fetch("/api/resumes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "import-linkedin", text: importText }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Import failed");
+      setShowImport(false);
+      setImportText("");
+      setMessage("Imported LinkedIn paste into a new resume variant.");
+      await load();
+      if (data.resume?.id) {
+        setSelectedId(data.resume.id);
+        setTitle(data.resume.title);
+        setContent(data.resume.content);
+        setSkillsText(data.resume.content.skills.join(", "));
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Import failed");
+    } finally {
+      setBusy(null);
+    }
+  }
+
   async function tailorResume() {
     if (!selectedId || !tailorJobId) {
       setError("Pick a resume and a job to tailor against");
@@ -306,6 +337,19 @@ export default function ResumeBuilderPage() {
             <Button
               type="button"
               variant="secondary"
+              onClick={() => setShowImport(true)}
+            >
+              <Import className="h-4 w-4" />
+              Import paste
+            </Button>
+            <a href="/api/resumes/export?format=docx">
+              <Button type="button" variant="secondary">
+                DOCX
+              </Button>
+            </a>
+            <Button
+              type="button"
+              variant="secondary"
               onClick={() => window.print()}
               disabled={!content}
             >
@@ -323,6 +367,41 @@ export default function ResumeBuilderPage() {
           </div>
         }
       />
+
+      {showImport ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4">
+          <Card className="max-h-[90vh] w-full max-w-xl overflow-auto">
+            <div className="flex items-center justify-between">
+              <h2 className="font-display text-xl text-ink">Import LinkedIn paste</h2>
+              <button type="button" onClick={() => setShowImport(false)}>
+                <X className="h-5 w-5 text-ink/50" />
+              </button>
+            </div>
+            <p className="mt-2 text-sm text-ink/60">
+              Paste your public profile text (About, Experience, Education, Skills). We do not
+              scrape LinkedIn — only content you paste.
+            </p>
+            <Textarea
+              className="mt-3"
+              rows={12}
+              value={importText}
+              onChange={(e) => setImportText(e.target.value)}
+              placeholder="Paste LinkedIn profile text here…"
+            />
+            <div className="mt-3 flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => setShowImport(false)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={() => void importLinkedIn()}
+                disabled={!importText.trim() || busy === "import"}
+              >
+                {busy === "import" ? "Importing…" : "Import"}
+              </Button>
+            </div>
+          </Card>
+        </div>
+      ) : null}
 
       {(message || error) && (
         <div
