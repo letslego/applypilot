@@ -18,7 +18,11 @@ export default function SettingsPage() {
   const [linkedinUrl, setLinkedinUrl] = useState("");
   const [plan, setPlan] = useState("free");
   const [credits, setCredits] = useState(0);
+  const [emailVerified, setEmailVerified] = useState<string | null>(null);
+  const [billingConfigured, setBillingConfigured] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/auth")
@@ -28,6 +32,8 @@ export default function SettingsPage() {
         setName(d.user.name || "");
         setPlan(d.user.plan);
         setCredits(d.user.credits);
+        setEmailVerified(d.user.emailVerified);
+        setBillingConfigured(Boolean(d.billingConfigured));
         const p = d.user.profile;
         if (!p) return;
         setHeadline(p.headline || "");
@@ -71,25 +77,50 @@ export default function SettingsPage() {
     setTimeout(() => setSaved(false), 2000);
   }
 
-  async function upgrade() {
-    const res = await fetch("/api/tools", {
+  async function billing(action: "checkout-pro" | "portal") {
+    setBusy(true);
+    setMessage(null);
+    const res = await fetch("/api/billing/checkout", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "upgrade" }),
+      body: JSON.stringify({ action }),
     });
     const data = await res.json();
-    if (res.ok) {
+    setBusy(false);
+    if (data.url) {
+      window.location.href = data.url;
+      return;
+    }
+    if (data.mock) {
       setPlan(data.plan);
       setCredits(data.credits);
+      setMessage("Dev mock upgrade applied (configure Stripe for live billing).");
+      return;
     }
+    setMessage(data.error || "Billing request failed");
+  }
+
+  async function resendVerify() {
+    const res = await fetch("/api/auth", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "resend-verify" }),
+    });
+    const data = await res.json();
+    setMessage(data.ok ? "Verification email sent (or logged if email not configured)." : data.error);
   }
 
   return (
     <div>
       <PageHeader
         title="Settings"
-        subtitle="Profile, preferences, and billing (demo upgrades — no real charges)."
+        subtitle="Profile, email verification, and billing."
       />
+      {message ? (
+        <p className="mb-4 rounded-xl border border-teal-900/10 bg-white/70 px-4 py-3 text-sm text-ink/70">
+          {message}
+        </p>
+      ) : null}
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2 space-y-3">
           <div className="grid gap-3 sm:grid-cols-2">
@@ -147,21 +178,55 @@ export default function SettingsPage() {
           </div>
           <Button onClick={save}>{saved ? "Saved" : "Save profile"}</Button>
         </Card>
-        <Card>
-          <h3 className="font-display text-2xl text-ink">Plan</h3>
-          <p className="mt-2 capitalize text-ink/70">
-            {plan} · {credits} credits
-          </p>
-          {plan !== "pro" ? (
-            <Button className="mt-4 w-full" onClick={upgrade}>
-              Upgrade to Pro (demo)
-            </Button>
-          ) : (
-            <p className="mt-4 text-sm text-ink/55">
-              Pro unlocked. Buy more credits from Auto-Apply.
+        <div className="space-y-4">
+          <Card>
+            <h3 className="font-display text-2xl text-ink">Plan</h3>
+            <p className="mt-2 capitalize text-ink/70">
+              {plan} · {credits} credits
             </p>
-          )}
-        </Card>
+            <p className="mt-2 text-xs text-ink/50">
+              Email: {emailVerified ? "verified" : "not verified"}
+            </p>
+            {!emailVerified ? (
+              <Button className="mt-3 w-full" variant="secondary" onClick={resendVerify}>
+                Resend verification
+              </Button>
+            ) : null}
+            {plan !== "pro" ? (
+              <Button
+                className="mt-4 w-full"
+                disabled={busy}
+                onClick={() => billing("checkout-pro")}
+              >
+                {billingConfigured ? "Upgrade to Pro" : "Upgrade to Pro (dev)"}
+              </Button>
+            ) : (
+              <Button
+                className="mt-4 w-full"
+                variant="secondary"
+                disabled={busy || !billingConfigured}
+                onClick={() => billing("portal")}
+              >
+                Manage billing
+              </Button>
+            )}
+          </Card>
+          <Card>
+            <h3 className="font-display text-xl text-ink">Exports</h3>
+            <p className="mt-2 text-sm text-ink/60">Download your master resume.</p>
+            <div className="mt-3 flex flex-col gap-2">
+              <a className="text-sm text-teal-800 underline" href="/api/resumes/export?format=docx">
+                Download DOCX
+              </a>
+              <a className="text-sm text-teal-800 underline" href="/api/resumes/export?format=pdf">
+                Print / Save PDF
+              </a>
+              <a className="text-sm text-teal-800 underline" href="/api/resumes/export?format=txt">
+                Plain text
+              </a>
+            </div>
+          </Card>
+        </div>
       </div>
     </div>
   );

@@ -32,6 +32,7 @@ async function upsertJobs(jobs: NormalizedJob[]): Promise<number> {
         source: job.source,
         postedAt: job.postedAt,
         url: job.url,
+        applyUrl: job.applyUrl || job.url,
       },
       update: {
         title: job.title,
@@ -49,6 +50,7 @@ async function upsertJobs(jobs: NormalizedJob[]): Promise<number> {
         source: job.source,
         postedAt: job.postedAt,
         url: job.url,
+        applyUrl: job.applyUrl || job.url,
       },
     });
     n += 1;
@@ -136,5 +138,19 @@ export async function syncLiveJobs(opts: SyncOptions = {}) {
     failed: results.filter((r) => r.errors.length).length,
     results,
   };
+
+  await prisma.syncRun.create({
+    data: {
+      source: "all",
+      ok: summary.failed === 0,
+      upserted: summary.upserted,
+      message: JSON.stringify({
+        sources: summary.sources,
+        fetched: summary.fetched,
+        failed: summary.failed,
+      }),
+    },
+  });
+
   return summary;
 }

@@ -37,15 +37,6 @@ export function MarketingFooter() {
             <Link href="/pricing" className="block text-ink/60 hover:text-ink">
               Pricing
             </Link>
-            <Link href="/#faq" className="block text-ink/60 hover:text-ink">
-              FAQ
-            </Link>
-            <Link href="/#how" className="block text-ink/60 hover:text-ink">
-              How it works
-            </Link>
-          </div>
-          <div className="space-y-2">
-            <div className="font-semibold text-ink">Account</div>
             <Link href="/login" className="block text-ink/60 hover:text-ink">
               Log in
             </Link>
@@ -53,11 +44,24 @@ export function MarketingFooter() {
               Sign up
             </Link>
           </div>
+          <div className="space-y-2">
+            <div className="font-semibold text-ink">Legal</div>
+            <Link href="/privacy" className="block text-ink/60 hover:text-ink">
+              Privacy
+            </Link>
+            <Link href="/terms" className="block text-ink/60 hover:text-ink">
+              Terms
+            </Link>
+            <Link href="/ai-disclosure" className="block text-ink/60 hover:text-ink">
+              AI disclosure
+            </Link>
+          </div>
         </div>
       </div>
       <p className="mx-auto mt-10 max-w-6xl text-xs text-ink/40">
-        © {new Date().getFullYear()} ApplyPilot. Demo product — Auto-Apply does not submit to
-        third-party job boards.
+        © {new Date().getFullYear()} ApplyPilot. Auto-Apply builds tailored packages and employer
+        apply links — you confirm submission on the employer site. We do not scrape LinkedIn or
+        Indeed.
       </p>
     </footer>
   );

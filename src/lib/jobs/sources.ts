@@ -24,6 +24,13 @@ export const GREENHOUSE_BOARDS: { token: string; company: string }[] = [
   { token: "dropbox", company: "Dropbox" },
   { token: "coinbase", company: "Coinbase" },
   { token: "anthropic", company: "Anthropic" },
+  { token: "shopify", company: "Shopify" },
+  { token: "notion", company: "Notion" },
+  { token: "discord", company: "Discord" },
+  { token: "robinhood", company: "Robinhood" },
+  { token: "affirm", company: "Affirm" },
+  { token: "pinterest", company: "Pinterest" },
+  { token: "duolingo", company: "Duolingo" },
 ];
 
 export const ASHBY_BOARDS: { org: string; company: string }[] = [
@@ -31,6 +38,10 @@ export const ASHBY_BOARDS: { org: string; company: string }[] = [
   { org: "linear", company: "Linear" },
   { org: "notion", company: "Notion" },
   { org: "ramp", company: "Ramp" },
+  { org: "cursor", company: "Cursor" },
+  { org: "vercel", company: "Vercel" },
+  { org: "resend", company: "Resend" },
+  { org: "mercury", company: "Mercury" },
 ];
 
 type GhList = {
@@ -92,6 +103,7 @@ export async function fetchGreenhouseBoard(
       source: "Greenhouse",
       postedAt: new Date(job.updated_at || Date.now()),
       url: job.absolute_url,
+      applyUrl: job.absolute_url,
     });
   }
   return out;
@@ -169,6 +181,7 @@ export async function fetchAshbyBoard(
       source: "Ashby",
       postedAt: new Date(job.publishedAt || Date.now()),
       url: job.jobUrl || job.applyUrl || `https://jobs.ashbyhq.com/${org}`,
+      applyUrl: job.applyUrl || job.jobUrl || null,
     };
   });
 }
@@ -212,6 +225,7 @@ export async function fetchRemotive(limit = 40): Promise<NormalizedJob[]> {
       source: "Remotive",
       postedAt: new Date(job.publication_date || Date.now()),
       url: job.url,
+      applyUrl: job.url,
     };
   });
 }
@@ -256,6 +270,7 @@ export async function fetchRemoteOK(limit = 40): Promise<NormalizedJob[]> {
         source: "RemoteOK",
         postedAt: job.date ? new Date(job.date) : new Date(),
         url: job.url || `https://remoteok.com/remote-jobs/${job.slug || job.id}`,
+        applyUrl: job.url || `https://remoteok.com/remote-jobs/${job.slug || job.id}`,
       };
     });
 }
@@ -301,6 +316,7 @@ export async function fetchArbeitnow(limit = 40): Promise<NormalizedJob[]> {
       source: "Arbeitnow",
       postedAt: new Date((job.created_at || Date.now() / 1000) * 1000),
       url: job.url,
+      applyUrl: job.url,
     };
   });
 }

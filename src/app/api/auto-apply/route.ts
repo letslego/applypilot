@@ -4,6 +4,9 @@ import { getSessionUser } from "@/lib/auth";
 import { computeMatch } from "@/lib/matching";
 import { generateCoverLetter, tailorResumeLocal } from "@/lib/ai";
 import type { ResumeContent } from "@/data/demo-resume";
+import { createApplyPackage } from "@/lib/auto-apply/queue";
+import { hasStripe } from "@/lib/env";
+import { clientKey, rateLimit } from "@/lib/rate-limit";
 
 export async function GET() {
   const user = await getSessionUser();
@@ -16,15 +19,28 @@ export async function GET() {
     orderBy: { createdAt: "desc" },
     take: 20,
   });
+  const pendingPackages = await prisma.applyPackage.count({
+    where: { userId: user.id, status: { in: ["ready", "opened"] } },
+  });
   return NextResponse.json({
     prefs,
     credits: user.credits,
     plan: user.plan,
     ledger,
+    pendingPackages,
+    billingConfigured: hasStripe(),
   });
 }
 
 export async function POST(req: NextRequest) {
+  const rl = rateLimit(clientKey(req, "auto-apply"), {
+    limit: 40,
+    windowMs: 60_000,
+  });
+  if (!rl.ok) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+  }
+
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const body = await req.json();
@@ -44,6 +60,7 @@ export async function POST(req: NextRequest) {
         remoteOnly: Boolean(body.remoteOnly),
         salaryMin: body.salaryMin ? Number(body.salaryMin) : null,
         dailyLimit: Number(body.dailyLimit || 25),
+        alertsEnabled: body.alertsEnabled !== false,
       },
       update: {
         enabled: Boolean(body.enabled),
@@ -55,28 +72,18 @@ export async function POST(req: NextRequest) {
         remoteOnly: Boolean(body.remoteOnly),
         salaryMin: body.salaryMin ? Number(body.salaryMin) : null,
         dailyLimit: Number(body.dailyLimit || 25),
+        alertsEnabled: body.alertsEnabled !== false,
       },
     });
     return NextResponse.json({ prefs });
   }
 
   if (action === "buy-credits") {
-    const pack = Number(body.pack || 50);
-    const updated = await prisma.$transaction(async (tx) => {
-      const u = await tx.user.update({
-        where: { id: user.id },
-        data: { credits: { increment: pack }, plan: user.plan === "free" ? "pro" : user.plan },
-      });
-      await tx.creditLedger.create({
-        data: {
-          userId: user.id,
-          delta: pack,
-          reason: `Purchased ${pack} credit pack (demo)`,
-        },
-      });
-      return u;
-    });
-    return NextResponse.json({ credits: updated.credits, plan: updated.plan });
+    // Prefer Stripe checkout; keep action for backwards compatibility
+    return NextResponse.json({
+      error: "Use /api/billing/checkout with action checkout-credits",
+      redirect: "/api/billing/checkout",
+    }, { status: 400 });
   }
 
   if (action === "run") {
@@ -195,8 +202,9 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      const status = prefs.mode === "hybrid" ? "queued" : "applied";
-      await prisma.$transaction(async (tx) => {
+      // hybrid = queued for user-confirmed ATS submit; auto = mark applied after package ready
+      const status = prefs.mode === "auto" ? "applied" : "queued";
+      const application = await prisma.$transaction(async (tx) => {
         await tx.user.update({
           where: { id: user.id },
           data: { credits: { decrement: 1 } },
@@ -205,10 +213,10 @@ export async function POST(req: NextRequest) {
           data: {
             userId: user.id,
             delta: -1,
-            reason: `Auto-apply run: ${job.company}`,
+            reason: `Auto-apply package: ${job.company}`,
           },
         });
-        await tx.application.create({
+        return tx.application.create({
           data: {
             userId: user.id,
             jobId: job.id,
@@ -218,15 +226,30 @@ export async function POST(req: NextRequest) {
             mode: prefs.mode,
             coverLetterText: letter,
             appliedAt: status === "applied" ? new Date() : null,
+            followUpAt:
+              status === "applied"
+                ? new Date(Date.now() + 5 * 24 * 60 * 60 * 1000)
+                : null,
           },
         });
       });
+
+      const pkg = await createApplyPackage({
+        userId: user.id,
+        applicationId: application.id,
+        applyUrl: job.applyUrl || job.url,
+        resume: tailored,
+        coverLetter: letter,
+      });
+
       results.push({
         jobId: job.id,
         company: job.company,
         title: job.title,
         matchScore: match.score,
         status,
+        applyUrl: job.applyUrl || job.url,
+        packageId: pkg.id,
       });
     }
 
@@ -239,6 +262,8 @@ export async function POST(req: NextRequest) {
         skippedApplied,
         skippedFilters,
         totalJobs: jobs.length,
+        note:
+          "Packages include tailored resume, cover letter, and employer apply URL. Confirm submit on the employer site — we do not scrape LinkedIn/Indeed.",
       },
     });
   }
