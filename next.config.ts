@@ -1,7 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // Keep our AGENTS.md brief; don't overwrite with Next defaults
+  // @ts-expect-error agentRules is supported by Next 16 tooling
+  agentRules: false,
 };
 
 export default nextConfig;
