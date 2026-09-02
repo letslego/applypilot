@@ -134,7 +134,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section id="how" className="px-6 pb-24">
+      <section id="how" className="px-6 pb-16">
         <div className="mx-auto max-w-6xl rounded-[2rem] bg-teal-800 px-8 py-12 text-sand-50 md:px-12">
           <h2 className="font-display text-4xl">How ApplyPilot works</h2>
           <ol className="mt-8 grid gap-6 md:grid-cols-4">
@@ -161,6 +161,79 @@ export default function HomePage() {
                 Create your account
               </Button>
             </Link>
+          </div>
+        </div>
+      </section>
+
+      <section className="px-6 pb-16">
+        <div className="mx-auto max-w-6xl">
+          <h2 className="font-display text-4xl text-ink">What job seekers say</h2>
+          <div className="mt-8 grid gap-6 md:grid-cols-3">
+            {[
+              {
+                quote:
+                  "Auto-Apply queued roles I would never have found manually — I spent the week on interviews instead of forms.",
+                name: "Jordan M.",
+                role: "Full-stack engineer",
+              },
+              {
+                quote:
+                  "The ATS scanner showed exactly which keywords I was missing. Two tailored bullets later, callbacks picked up.",
+                name: "Samira K.",
+                role: "Product manager",
+              },
+              {
+                quote:
+                  "Interview Buddy’s STAR prompts kept me calm on a hard system-design loop. Felt like a quiet co-pilot.",
+                name: "Chris L.",
+                role: "Backend engineer",
+              },
+            ].map((t) => (
+              <div
+                key={t.name}
+                className="rounded-3xl border border-teal-900/8 bg-white/60 p-6"
+              >
+                <p className="text-ink/75">“{t.quote}”</p>
+                <p className="mt-4 text-sm font-semibold text-ink">{t.name}</p>
+                <p className="text-xs text-ink/45">{t.role}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section id="faq" className="px-6 pb-24">
+        <div className="mx-auto max-w-3xl">
+          <h2 className="font-display text-4xl text-ink">FAQ</h2>
+          <div className="mt-8 space-y-4">
+            {[
+              {
+                q: "Does Auto-Apply really submit to LinkedIn/Indeed?",
+                a: "This demo ethically simulates matching, tailoring, credit burn, and tracker updates. Production integrations would use official APIs and your explicit consent — never ToS-breaking bots.",
+              },
+              {
+                q: "How do credits work?",
+                a: "One credit equals one automated application. Credits never expire. Free accounts start with 5; Pro unlocks more tools and a starter pack.",
+              },
+              {
+                q: "Is my resume AI-watermarked?",
+                a: "No. Outputs are written to sound human and specific. You can edit every line before sending.",
+              },
+              {
+                q: "What’s included beyond AIApply parity?",
+                a: "Kanban tracker, keyword heatmaps, company research briefs, outreach templates, salary signals, answer bank, and analytics.",
+              },
+            ].map((item) => (
+              <details
+                key={item.q}
+                className="group rounded-2xl border border-teal-900/8 bg-white/60 px-5 py-4"
+              >
+                <summary className="cursor-pointer list-none font-medium text-ink">
+                  {item.q}
+                </summary>
+                <p className="mt-2 text-sm text-ink/65">{item.a}</p>
+              </details>
+            ))}
           </div>
         </div>
       </section>
