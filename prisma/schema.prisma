@@ -1,0 +1,195 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  plan         String   @default("free") // free | pro
+  credits      Int      @default(5)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  profile       Profile?
+  resumes       Resume[]
+  coverLetters  CoverLetter[]
+  applications  Application[]
+  creditLedger  CreditLedger[]
+  interviews    InterviewSession[]
+  answerBank    AnswerBankEntry[]
+  savedSearches SavedSearch[]
+  outreach      OutreachDraft[]
+  autoPrefs     AutoApplyPrefs?
+}
+
+model Profile {
+  id              String  @id @default(cuid())
+  userId          String  @unique
+  user            User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  headline        String?
+  location        String?
+  linkedinUrl     String?
+  phone           String?
+  summary         String?
+  skills          String  @default("[]") // JSON array
+  yearsExperience Int     @default(0)
+  desiredRoles    String  @default("[]") // JSON
+  desiredLocations String @default("[]") // JSON
+  salaryMin       Int?
+  salaryMax       Int?
+  workAuth        String?
+  willingRemote   Boolean @default(true)
+  willingRelocate Boolean @default(false)
+}
+
+model Resume {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  isMaster    Boolean  @default(false)
+  language    String   @default("en")
+  content     String // JSON ResumeContent
+  tailoredFor String? // job id or title
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  applications Application[]
+  coverLetters CoverLetter[]
+}
+
+model CoverLetter {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  resumeId  String?
+  resume    Resume?  @relation(fields: [resumeId], references: [id])
+  jobId     String?
+  job       Job?     @relation(fields: [jobId], references: [id])
+  title     String
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Job {
+  id           String   @id @default(cuid())
+  externalId   String?  @unique
+  title        String
+  company      String
+  location     String
+  remoteType   String   @default("hybrid") // remote | hybrid | onsite
+  salaryMin    Int?
+  salaryMax    Int?
+  currency     String   @default("USD")
+  description  String
+  requirements String // JSON array
+  skills       String // JSON array
+  department   String?
+  seniority    String?
+  source       String   @default("ApplyPilot Board")
+  postedAt     DateTime @default(now())
+  url          String?
+
+  applications Application[]
+  coverLetters CoverLetter[]
+}
+
+model Application {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobId           String
+  job             Job      @relation(fields: [jobId], references: [id])
+  resumeId        String?
+  resume          Resume?  @relation(fields: [resumeId], references: [id])
+  status          String   @default("saved") // saved | queued | applied | interview | offer | rejected
+  matchScore      Int      @default(0)
+  mode            String   @default("manual") // manual | hybrid | auto
+  coverLetterText String?
+  notes           String?
+  followUpAt      DateTime?
+  appliedAt       DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([userId, jobId])
+}
+
+model CreditLedger {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  delta     Int
+  reason    String
+  createdAt DateTime @default(now())
+}
+
+model AutoApplyPrefs {
+  id               String  @id @default(cuid())
+  userId           String  @unique
+  user             User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  enabled          Boolean @default(false)
+  mode             String  @default("hybrid") // manual | hybrid | auto
+  roles            String  @default("[]")
+  locations        String  @default("[]")
+  excludeCompanies String  @default("[]")
+  minMatchScore    Int     @default(70)
+  remoteOnly       Boolean @default(false)
+  salaryMin        Int?
+  dailyLimit       Int     @default(25)
+}
+
+model InterviewSession {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobTitle  String
+  company   String?
+  kind      String   @default("mock") // mock | buddy
+  transcript String  @default("[]") // JSON messages
+  feedback  String?
+  score     Int?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AnswerBankEntry {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  label     String
+  question  String
+  answer    String
+  category  String   @default("general")
+  createdAt DateTime @default(now())
+}
+
+model SavedSearch {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  query     String // JSON filters
+  createdAt DateTime @default(now())
+}
+
+model OutreachDraft {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  channel   String   @default("email") // email | linkedin
+  recipient String?
+  subject   String?
+  body      String
+  company   String?
+  role      String?
+  createdAt DateTime @default(now())
+}

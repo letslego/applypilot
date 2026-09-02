@@ -1,0 +1,109 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --ink: #14221f;
+  --sand-50: #f7f3ea;
+  --sand-100: #efe8d8;
+  --teal-700: #0f6a5c;
+  --teal-800: #0b4f45;
+  --teal-900: #0a3b34;
+  --background: #f3efe6;
+  --foreground: #14221f;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: var(--font-body), system-ui, sans-serif;
+  min-height: 100vh;
+}
+
+.font-display {
+  font-family: var(--font-display), Georgia, serif;
+}
+
+.text-ink {
+  color: var(--ink);
+}
+
+.bg-sand-50 {
+  background-color: var(--sand-50);
+}
+
+.text-sand-50 {
+  color: var(--sand-50);
+}
+
+.atmosphere {
+  background:
+    radial-gradient(1200px 600px at 10% -10%, rgba(15, 106, 92, 0.18), transparent 55%),
+    radial-gradient(900px 500px at 90% 0%, rgba(201, 148, 74, 0.16), transparent 50%),
+    radial-gradient(700px 400px at 50% 100%, rgba(15, 106, 92, 0.08), transparent 45%),
+    linear-gradient(180deg, #f7f3ea 0%, #efe8d8 45%, #e7f0ec 100%);
+}
+
+.hero-grid {
+  background-image:
+    linear-gradient(rgba(20, 34, 31, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(20, 34, 31, 0.04) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse at center, black 30%, transparent 75%);
+}
+
+@keyframes float-y {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-float {
+  animation: float-y 5s ease-in-out infinite;
+}
+
+.animate-marquee {
+  animation: marquee 40s linear infinite;
+}
+
+.animate-fade-up {
+  animation: fade-up 0.7s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-float,
+  .animate-marquee,
+  .animate-fade-up {
+    animation: none;
+  }
+}
+
+/* Resume print */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #resume-print,
+  #resume-print * {
+    visibility: visible;
+  }
+  #resume-print {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+}
