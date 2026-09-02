@@ -165,5 +165,25 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ coverLetter: created });
   }
 
+  if (action === "import-linkedin") {
+    const { parseLinkedInPaste } = await import("@/lib/linkedin-import");
+    const master = await prisma.resume.findFirst({
+      where: { userId: user.id, isMaster: true },
+    });
+    const fallback = master
+      ? (JSON.parse(master.content) as ResumeContent)
+      : undefined;
+    const parsed = parseLinkedInPaste(String(body.text || ""), fallback);
+    const created = await prisma.resume.create({
+      data: {
+        userId: user.id,
+        title: body.title || "Imported from LinkedIn paste",
+        content: JSON.stringify(parsed),
+        isMaster: false,
+      },
+    });
+    return NextResponse.json({ resume: { ...created, content: parsed } });
+  }
+
   return NextResponse.json({ error: "Unknown action" }, { status: 400 });
 }
