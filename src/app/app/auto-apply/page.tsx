@@ -37,6 +37,8 @@ type RunResult = {
   title: string;
   matchScore: number;
   status: string;
+  applyUrl?: string | null;
+  packageId?: string;
 };
 
 const CREDIT_PACKS = [25, 50, 100, 250];
@@ -183,7 +185,7 @@ export default function AutoApplyPage() {
       setCredits(data.credits ?? credits);
       if (data.applied?.length) {
         setMessage(
-          `Queued/applied ${data.applied.length} role(s). This is a simulator — no external sites were contacted.`,
+          `Prepared ${data.applied.length} apply package(s) with tailored docs + employer apply links. Open each package and confirm submit on the employer site.`,
         );
       } else {
         const skipped = data.meta?.skippedApplied ?? 0;
@@ -205,22 +207,28 @@ export default function AutoApplyPage() {
     setError(null);
     setMessage(null);
     try {
-      const res = await fetch("/api/auto-apply", {
+      const res = await fetch("/api/billing/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "buy-credits", pack }),
+        body: JSON.stringify({ action: "checkout-credits", pack }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
+      if (!res.ok && !data.mock) {
         setError(data.error || "Purchase failed.");
         return;
       }
-      setCredits(data.credits ?? credits);
-      setPlan(data.plan ?? plan);
-      setMessage(
-        `Added ${pack} credits. Credits never expire — use them anytime.`,
-      );
-      await refresh();
+      if (data.url) {
+        window.location.href = data.url;
+        return;
+      }
+      if (data.mock) {
+        setCredits(data.credits ?? credits);
+        setPlan(data.plan ?? plan);
+        setMessage(
+          `Added ${pack} credits (dev mock). Configure Stripe for live checkout.`,
+        );
+        await refresh();
+      }
     } finally {
       setBusy(null);
     }
@@ -234,7 +242,7 @@ export default function AutoApplyPage() {
     <div>
       <PageHeader
         title="Auto-Apply"
-        subtitle="Set criteria, burn credits, and simulate continuous applications. One credit equals one simulated apply."
+        subtitle="Match roles, spend credits, and generate employer apply packages. One credit = one package."
         actions={
           <div className="rounded-xl bg-teal-800 px-4 py-2 text-sand-50">
             <div className="text-xs uppercase tracking-wide opacity-80">
@@ -248,9 +256,10 @@ export default function AutoApplyPage() {
       <div className="mb-6 flex items-start gap-3 rounded-2xl border border-amber-200/80 bg-amber-50/80 px-4 py-3 text-sm text-amber-950">
         <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
         <p>
-          <strong className="font-medium">Ethical note:</strong> Auto-Apply is a
-          simulator. ApplyPilot never submits forms to LinkedIn, Indeed, or
-          employer ATS systems. Credits power demo queue runs only.
+          <strong className="font-medium">How Auto-Apply works:</strong> we
+          tailor your resume/cover letter and open the employer&apos;s official
+          apply URL. You confirm submission — we never scrape LinkedIn/Indeed or
+          stealth-submit to restricted boards.
         </p>
       </div>
 
@@ -377,7 +386,7 @@ export default function AutoApplyPage() {
                     setPrefs({ ...prefs, enabled: e.target.checked })
                   }
                 />
-                Enabled (continuous simulator flag)
+                Enabled (queue packages when continuous mode is on)
               </label>
             </div>
           </div>
@@ -481,6 +490,28 @@ export default function AutoApplyPage() {
                   <Badge className="bg-sand-100 capitalize text-ink/70">
                     {r.status}
                   </Badge>
+                  {r.applyUrl ? (
+                    <a
+                      href={r.applyUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs font-medium text-teal-800 underline"
+                      onClick={() => {
+                        if (r.packageId) {
+                          void fetch("/api/apply-packages", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              action: "mark-opened",
+                              id: r.packageId,
+                            }),
+                          });
+                        }
+                      }}
+                    >
+                      Open apply
+                    </a>
+                  ) : null}
                 </div>
               </li>
             ))}

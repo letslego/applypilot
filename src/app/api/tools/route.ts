@@ -150,18 +150,13 @@ export async function POST(req: NextRequest) {
   }
 
   if (action === "upgrade") {
-    const updated = await prisma.user.update({
-      where: { id: user.id },
-      data: { plan: "pro", credits: { increment: 25 } },
-    });
-    await prisma.creditLedger.create({
-      data: {
-        userId: user.id,
-        delta: 25,
-        reason: "Upgraded to Pro (demo)",
+    return NextResponse.json(
+      {
+        error: "Use /api/billing/checkout with action checkout-pro",
+        redirect: "/api/billing/checkout",
       },
-    });
-    return NextResponse.json({ plan: updated.plan, credits: updated.credits });
+      { status: 400 },
+    );
   }
 
   if (action === "update-profile") {

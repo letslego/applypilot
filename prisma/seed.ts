@@ -6,6 +6,9 @@ import { DEMO_RESUME } from "../src/data/demo-resume";
 const prisma = new PrismaClient();
 
 async function main() {
+  await prisma.applyPackage.deleteMany();
+  await prisma.notification.deleteMany();
+  await prisma.syncRun.deleteMany();
   await prisma.application.deleteMany();
   await prisma.coverLetter.deleteMany();
   await prisma.resume.deleteMany();
@@ -20,10 +23,15 @@ async function main() {
   await prisma.user.deleteMany();
 
   for (const job of JOBS_SEED) {
-    await prisma.job.create({ data: job });
+    await prisma.job.create({
+      data: {
+        ...job,
+        applyUrl: job.url || null,
+      },
+    });
   }
 
-  const passwordHash = await bcrypt.hash("demo1234", 10);
+  const passwordHash = await bcrypt.hash("demo1234", 12);
   const user = await prisma.user.create({
     data: {
       email: "demo@applypilot.com",
@@ -31,6 +39,8 @@ async function main() {
       name: "Alex Rivera",
       plan: "pro",
       credits: 50,
+      emailVerified: new Date(),
+      role: "admin",
       profile: {
         create: {
           headline: "Senior Full-Stack Engineer",

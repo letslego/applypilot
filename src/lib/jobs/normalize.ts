@@ -31,6 +31,8 @@ export type NormalizedJob = {
   source: string;
   postedAt: Date;
   url: string;
+  /** Direct employer application URL when available (legal ATS apply link). */
+  applyUrl?: string | null;
 };
 
 export type IngestResult = {

@@ -56,7 +56,7 @@ const PRICING_FAQS = [
   },
   {
     q: "Is checkout real?",
-    a: "This demo uses mock checkout. Upgrading and buying credits updates your local account for product exploration — no real charges.",
+    a: "Yes when Stripe keys are configured — Pro subscriptions and credit packs bill through Stripe Checkout + webhooks. Without keys, local/dev uses a safe mock upgrade path.",
   },
 ];
 
@@ -117,7 +117,10 @@ export default function PricingPage() {
                   </li>
                 ))}
               </ul>
-              <Link href="/signup" className="mt-8 block">
+              <Link
+                href={p.name === "Credit packs" ? "/app/auto-apply" : p.name === "Pro" ? "/app/settings" : "/signup"}
+                className="mt-8 block"
+              >
                 <Button
                   className={
                     p.highlight
@@ -133,9 +136,13 @@ export default function PricingPage() {
         </div>
 
         <p className="mt-10 text-center text-sm text-ink/50">
-          Demo account includes Pro + 50 credits —{" "}
-          <Link href="/login" className="text-teal-800 underline-offset-4 hover:underline">
-            try it now
+          Billing via Stripe ·{" "}
+          <Link href="/terms" className="text-teal-800 underline-offset-4 hover:underline">
+            Terms
+          </Link>{" "}
+          ·{" "}
+          <Link href="/privacy" className="text-teal-800 underline-offset-4 hover:underline">
+            Privacy
           </Link>
           .
         </p>

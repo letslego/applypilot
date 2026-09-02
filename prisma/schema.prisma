@@ -2,20 +2,29 @@ generator client {
   provider = "prisma-client-js"
 }
 
+// Local/demo: sqlite. Production: change provider to "postgresql" and set DATABASE_URL.
 datasource db {
   provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  passwordHash String
-  name         String
-  plan         String   @default("free") // free | pro
-  credits      Int      @default(5)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                   String    @id @default(cuid())
+  email                String    @unique
+  passwordHash         String
+  name                 String
+  plan                 String    @default("free") // free | pro
+  credits              Int       @default(5)
+  role                 String    @default("user") // user | admin
+  emailVerified        DateTime?
+  stripeCustomerId     String?
+  stripeSubscriptionId String?
+  resetToken           String?
+  resetTokenExpires    DateTime?
+  verifyToken          String?
+  verifyTokenExpires   DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 
   profile       Profile?
   resumes       Resume[]
@@ -27,26 +36,28 @@ model User {
   savedSearches SavedSearch[]
   outreach      OutreachDraft[]
   autoPrefs     AutoApplyPrefs?
+  applyPackages ApplyPackage[]
+  notifications Notification[]
 }
 
 model Profile {
-  id              String  @id @default(cuid())
-  userId          String  @unique
-  user            User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  headline        String?
-  location        String?
-  linkedinUrl     String?
-  phone           String?
-  summary         String?
-  skills          String  @default("[]") // JSON array
-  yearsExperience Int     @default(0)
-  desiredRoles    String  @default("[]") // JSON
-  desiredLocations String @default("[]") // JSON
-  salaryMin       Int?
-  salaryMax       Int?
-  workAuth        String?
-  willingRemote   Boolean @default(true)
-  willingRelocate Boolean @default(false)
+  id               String  @id @default(cuid())
+  userId           String  @unique
+  user             User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  headline         String?
+  location         String?
+  linkedinUrl      String?
+  phone            String?
+  summary          String?
+  skills           String  @default("[]") // JSON array
+  yearsExperience  Int     @default(0)
+  desiredRoles     String  @default("[]") // JSON
+  desiredLocations String  @default("[]") // JSON
+  salaryMin        Int?
+  salaryMax        Int?
+  workAuth         String?
+  willingRemote    Boolean @default(true)
+  willingRelocate  Boolean @default(false)
 }
 
 model Resume {
@@ -97,30 +108,50 @@ model Job {
   source       String   @default("ApplyPilot Board")
   postedAt     DateTime @default(now())
   url          String?
+  applyUrl     String?
 
   applications Application[]
   coverLetters CoverLetter[]
 }
 
 model Application {
-  id              String   @id @default(cuid())
+  id              String    @id @default(cuid())
   userId          String
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   jobId           String
-  job             Job      @relation(fields: [jobId], references: [id])
+  job             Job       @relation(fields: [jobId], references: [id])
   resumeId        String?
-  resume          Resume?  @relation(fields: [resumeId], references: [id])
-  status          String   @default("saved") // saved | queued | applied | interview | offer | rejected
-  matchScore      Int      @default(0)
-  mode            String   @default("manual") // manual | hybrid | auto
+  resume          Resume?   @relation(fields: [resumeId], references: [id])
+  status          String    @default("saved") // saved | queued | applied | interview | offer | rejected
+  matchScore      Int       @default(0)
+  mode            String    @default("manual") // manual | hybrid | auto
   coverLetterText String?
   notes           String?
   followUpAt      DateTime?
   appliedAt       DateTime?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  applyPackage ApplyPackage?
 
   @@unique([userId, jobId])
+}
+
+model ApplyPackage {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  applicationId String    @unique
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  applyUrl      String?
+  resumeJson    String
+  coverLetter   String
+  answersJson   String    @default("{}")
+  status        String    @default("ready") // ready | opened | submitted | failed
+  notes         String?
+  submittedAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 }
 
 model CreditLedger {
@@ -129,6 +160,7 @@ model CreditLedger {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   delta     Int
   reason    String
+  stripeSessionId String?
   createdAt DateTime @default(now())
 }
 
@@ -145,20 +177,21 @@ model AutoApplyPrefs {
   remoteOnly       Boolean @default(false)
   salaryMin        Int?
   dailyLimit       Int     @default(25)
+  alertsEnabled    Boolean @default(true)
 }
 
 model InterviewSession {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  jobTitle  String
-  company   String?
-  kind      String   @default("mock") // mock | buddy
-  transcript String  @default("[]") // JSON messages
-  feedback  String?
-  score     Int?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobTitle   String
+  company    String?
+  kind       String   @default("mock") // mock | buddy
+  transcript String   @default("[]") // JSON messages
+  feedback   String?
+  score      Int?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 }
 
 model AnswerBankEntry {
@@ -178,6 +211,8 @@ model SavedSearch {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   name      String
   query     String // JSON filters
+  alertEnabled Boolean @default(true)
+  lastAlertAt  DateTime?
   createdAt DateTime @default(now())
 }
 
@@ -192,4 +227,24 @@ model OutreachDraft {
   company   String?
   role      String?
   createdAt DateTime @default(now())
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind      String
+  title     String
+  body      String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model SyncRun {
+  id         String   @id @default(cuid())
+  source     String
+  ok         Boolean
+  upserted   Int      @default(0)
+  message    String?
+  createdAt  DateTime @default(now())
 }

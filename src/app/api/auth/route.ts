@@ -4,12 +4,20 @@ import {
   createSession,
   hashPassword,
   verifyPassword,
-  destroySession,
   getSessionUser,
+  randomToken,
 } from "@/lib/auth";
 import { DEMO_RESUME } from "@/data/demo-resume";
+import { clientKey, rateLimit } from "@/lib/rate-limit";
+import { sendPasswordResetEmail, sendVerifyEmail, sendWelcomeEmail } from "@/lib/email";
+import { allowDemoLogin } from "@/lib/env";
 
 export async function POST(req: NextRequest) {
+  const rl = rateLimit(clientKey(req, "auth"), { limit: 30, windowMs: 60_000 });
+  if (!rl.ok) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+  }
+
   const body = await req.json();
   const { action } = body as { action: string };
 
@@ -19,16 +27,23 @@ export async function POST(req: NextRequest) {
       .trim();
     const password = String(body.password || "");
     const name = String(body.name || "Job Seeker").trim();
-    if (!email || password.length < 6) {
+    if (!email || password.length < 8) {
       return NextResponse.json(
-        { error: "Email and password (6+ chars) required" },
+        { error: "Email and password (8+ chars) required" },
         { status: 400 },
       );
+    }
+    if (
+      process.env.NODE_ENV === "production" &&
+      email === "demo@applypilot.com"
+    ) {
+      return NextResponse.json({ error: "Reserved email" }, { status: 400 });
     }
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) {
       return NextResponse.json({ error: "Email already registered" }, { status: 400 });
     }
+    const verifyToken = randomToken();
     const user = await prisma.user.create({
       data: {
         email,
@@ -36,6 +51,8 @@ export async function POST(req: NextRequest) {
         name,
         plan: "free",
         credits: 5,
+        verifyToken,
+        verifyTokenExpires: new Date(Date.now() + 24 * 60 * 60 * 1000),
         profile: {
           create: {
             headline: "Job seeker",
@@ -67,7 +84,9 @@ export async function POST(req: NextRequest) {
       },
     });
     await createSession(user.id);
-    return NextResponse.json({ ok: true, userId: user.id });
+    await sendWelcomeEmail(email, name);
+    await sendVerifyEmail(email, verifyToken);
+    return NextResponse.json({ ok: true, userId: user.id, verifyEmailSent: true });
   }
 
   if (action === "login") {
@@ -75,11 +94,84 @@ export async function POST(req: NextRequest) {
       .toLowerCase()
       .trim();
     const password = String(body.password || "");
+    if (
+      process.env.NODE_ENV === "production" &&
+      email === "demo@applypilot.com" &&
+      !allowDemoLogin()
+    ) {
+      return NextResponse.json({ error: "Demo login disabled" }, { status: 403 });
+    }
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user || !(await verifyPassword(password, user.passwordHash))) {
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
     }
     await createSession(user.id);
+    return NextResponse.json({
+      ok: true,
+      emailVerified: Boolean(user.emailVerified),
+    });
+  }
+
+  if (action === "request-reset") {
+    const email = String(body.email || "")
+      .toLowerCase()
+      .trim();
+    const user = await prisma.user.findUnique({ where: { email } });
+    // Always OK to avoid account enumeration
+    if (user) {
+      const token = randomToken();
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          resetToken: token,
+          resetTokenExpires: new Date(Date.now() + 60 * 60 * 1000),
+        },
+      });
+      await sendPasswordResetEmail(email, token);
+    }
+    return NextResponse.json({ ok: true });
+  }
+
+  if (action === "reset-password") {
+    const token = String(body.token || "");
+    const password = String(body.password || "");
+    if (!token || password.length < 8) {
+      return NextResponse.json({ error: "Invalid reset request" }, { status: 400 });
+    }
+    const user = await prisma.user.findFirst({
+      where: {
+        resetToken: token,
+        resetTokenExpires: { gt: new Date() },
+      },
+    });
+    if (!user) {
+      return NextResponse.json({ error: "Invalid or expired token" }, { status: 400 });
+    }
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        passwordHash: await hashPassword(password),
+        resetToken: null,
+        resetTokenExpires: null,
+      },
+    });
+    await createSession(user.id);
+    return NextResponse.json({ ok: true });
+  }
+
+  if (action === "resend-verify") {
+    const user = await getSessionUser();
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (user.emailVerified) return NextResponse.json({ ok: true, already: true });
+    const token = randomToken();
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        verifyToken: token,
+        verifyTokenExpires: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      },
+    });
+    await sendVerifyEmail(user.email, token);
     return NextResponse.json({ ok: true });
   }
 
@@ -96,7 +188,11 @@ export async function GET() {
       name: user.name,
       plan: user.plan,
       credits: user.credits,
+      role: user.role,
+      emailVerified: user.emailVerified,
+      stripeCustomerId: user.stripeCustomerId,
       profile: user.profile,
     },
+    billingConfigured: Boolean(process.env.STRIPE_SECRET_KEY),
   });
 }

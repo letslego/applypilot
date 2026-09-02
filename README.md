@@ -4,9 +4,10 @@ AI job-application co-pilot inspired by [AIApply](https://aiapply.co/) — with 
 
 **Repo:** https://github.com/letslego/applypilot
 
-## Quick start
+## Quick start (local)
 
 ```bash
+cp .env.example .env
 npm install
 npm run db:reset
 npm run dev
@@ -14,29 +15,38 @@ npm run dev
 
 Open http://localhost:3000
 
-**Demo login:** `demo@applypilot.com` / `demo1234`
+**Demo login (non-production only):** `demo@applypilot.com` / `demo1234`
+
+## Production launch
+
+See **[DEPLOY.md](./DEPLOY.md)** for Postgres, Stripe, Resend, OpenAI, cron, and env setup.
+
+```bash
+npm run build && npm start
+```
 
 ## Features
 
 | Area | Capability |
 |------|------------|
 | Marketing | Brand-first landing, pricing, features, FAQ |
-| Documents | AI resume builder, tailor, translate, print/PDF |
+| Auth | HMAC-signed sessions, email verify, password reset |
+| Billing | Stripe Checkout (Pro + credit packs) + webhooks |
+| Documents | AI resume builder, tailor, translate, DOCX/PDF export |
 | Cover letters | Per-job generation |
 | ATS scanner | Score, keyword heatmap, rewrite tips |
-| Job board | 90 seeded roles + match scores |
-| Auto-Apply | Prefs, hybrid/auto modes, credit wallet (simulated) |
-| Tracker | Kanban pipeline (Teal-style) |
-| Interviews | Mock interview + Interview Buddy |
-| Extras | Outreach templates, answer bank, analytics, company briefs |
+| Job board | Seeded roles + live ATS/public feed sync |
+| Auto-Apply | Prefs, hybrid/auto modes, credit wallet, **employer apply packages** |
+| Tracker | Kanban pipeline + follow-up reminders |
+| Interviews | Mock interview + Interview Buddy (practice coach) |
+| Alerts | Job match emails + in-app notifications |
+| Legal | Privacy, Terms, AI disclosure |
 
-Auto-Apply **simulates** submissions ethically (no LinkedIn/Indeed scraping). Optional live LLM via `OPENAI_API_KEY`.
+Auto-Apply builds tailored packages and employer apply links — you confirm submission. Optional live LLM via `OPENAI_API_KEY`. Set `REQUIRE_OPENAI=true` in production.
 
 ## Job data sources
 
-AIApply markets aggregation from **LinkedIn, Indeed, Glassdoor**, and **company career / ATS pages** (Greenhouse, Lever, Workday, Ashby, …).
-
-ApplyPilot does **not** scrape LinkedIn/Indeed/Glassdoor (ToS). Live ingest pulls the same company postings via public APIs:
+Legal ingest (no LinkedIn/Indeed/Glassdoor scraping):
 
 | Source | Endpoint style |
 |--------|----------------|
@@ -49,7 +59,7 @@ ApplyPilot does **not** scrape LinkedIn/Indeed/Glassdoor (ToS). Live ingest pull
 ```bash
 npm run jobs:sync:quick   # fast subset
 npm run jobs:sync         # fuller pull
+npm run cron:all          # sync + queue + alerts + follow-ups
 ```
 
 Or click **Sync live jobs** on `/app/jobs` while logged in.
-

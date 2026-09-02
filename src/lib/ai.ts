@@ -1,12 +1,14 @@
 import type { ResumeContent } from "@/data/demo-resume";
 import { computeMatch } from "./matching";
-
-function hasOpenAI() {
-  return Boolean(process.env.OPENAI_API_KEY);
-}
+import { hasOpenAI, requireOpenAI } from "./env";
 
 async function openaiChat(system: string, user: string): Promise<string | null> {
-  if (!hasOpenAI()) return null;
+  if (!hasOpenAI()) {
+    if (requireOpenAI()) {
+      throw new Error("OPENAI_API_KEY is required for this feature");
+    }
+    return null;
+  }
   try {
     const res = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -23,10 +25,16 @@ async function openaiChat(system: string, user: string): Promise<string | null> 
         temperature: 0.5,
       }),
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      if (requireOpenAI()) {
+        throw new Error(`OpenAI error ${res.status}`);
+      }
+      return null;
+    }
     const data = await res.json();
     return data.choices?.[0]?.message?.content ?? null;
-  } catch {
+  } catch (e) {
+    if (requireOpenAI()) throw e;
     return null;
   }
 }
@@ -134,27 +142,58 @@ export async function scanResume(opts: {
   if (opts.resume.skills.length < 6) {
     formattingIssues.push("Add more skills so ATS keyword nets catch you.");
   }
+  if (!opts.resume.email || !opts.resume.phone) {
+    formattingIssues.push("Include email and phone for ATS contact parsing.");
+  }
+  const hasYears = opts.resume.experience.some((e) => /\d{4}/.test(e.start));
+  if (!hasYears) {
+    formattingIssues.push("Use explicit date ranges (YYYY) for each role.");
+  }
+
+  const liveTips = await openaiChat(
+    "You are an ATS resume coach. Return 3-5 short rewrite tips as a plain bullet list, no preamble.",
+    `Job: ${opts.jobTitle || "role"}\nMissing skills: ${match.missingSkills.join(", ")}\nResume summary: ${opts.resume.summary}\nTop bullets: ${opts.resume.experience[0]?.bullets?.slice(0, 3).join(" | ") || "none"}`,
+  );
 
   const atsChecks = [
     { label: "Standard section headings", pass: true },
     { label: "No tables/columns detected", pass: true },
     { label: "Contact info parseable", pass: Boolean(opts.resume.email) },
+    { label: "Phone present", pass: Boolean(opts.resume.phone) },
     { label: "Skills section present", pass: opts.resume.skills.length > 0 },
     { label: "Chronological experience", pass: opts.resume.experience.length > 0 },
+    { label: "Education section", pass: (opts.resume.education?.length || 0) > 0 },
     {
       label: "Keyword density healthy",
       pass: match.keywordCoverage >= 40,
     },
+    {
+      label: "Quantified bullets",
+      pass: opts.resume.experience.some((e) =>
+        e.bullets.some((b) => /\d/.test(b)),
+      ),
+    },
   ];
+
+  const aiSuggestions = liveTips
+    ? liveTips
+        .split("\n")
+        .map((l) => l.replace(/^[-*•\d.\s]+/, "").trim())
+        .filter(Boolean)
+        .slice(0, 5)
+    : [];
 
   return {
     overall: match.score,
     match,
     formattingIssues,
     atsChecks,
-    rewriteSuggestions: match.missingSkills.slice(0, 5).map(
-      (s) => `Weave “${s}” into a quantified bullet under your latest role.`,
-    ),
+    rewriteSuggestions: [
+      ...aiSuggestions,
+      ...match.missingSkills.slice(0, 5).map(
+        (s) => `Weave “${s}” into a quantified bullet under your latest role.`,
+      ),
+    ].slice(0, 8),
   };
 }
 
