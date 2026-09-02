@@ -118,35 +118,72 @@ export function AppSidebar({
   user: { name: string; plan: string; credits: number };
 }) {
   const [open, setOpen] = useState(false);
+  const [isDesktop, setIsDesktop] = useState<boolean | null>(null);
   const pathname = usePathname();
 
   useEffect(() => {
     setOpen(false);
   }, [pathname]);
 
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 768px)");
+    const apply = () => setIsDesktop(mq.matches);
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, []);
+
   return (
     <>
-      <div className="fixed inset-x-0 top-0 z-30 flex items-center justify-between border-b border-teal-900/10 bg-[#f3efe6]/95 px-4 py-3 backdrop-blur md:hidden">
-        <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-800 text-sand-50">
-            <Sparkles className="h-4 w-4" />
+      {/* SSR / first-paint: CSS-only shell so mobile isn't stuck with desktop nav */}
+      {isDesktop === null ? (
+        <>
+          <div className="fixed inset-x-0 top-0 z-30 flex items-center justify-between border-b border-teal-900/10 bg-[#f3efe6]/95 px-4 py-3 backdrop-blur md:hidden">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-800 text-sand-50">
+                <Sparkles className="h-4 w-4" />
+              </div>
+              <span className="font-display text-lg text-ink">ApplyPilot</span>
+            </div>
+            <button
+              aria-label="Open menu"
+              className="rounded-xl p-2 hover:bg-teal-900/5"
+              onClick={() => setOpen(true)}
+            >
+              <Menu className="h-5 w-5 text-ink" />
+            </button>
           </div>
-          <span className="font-display text-lg text-ink">ApplyPilot</span>
+          <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-teal-900/10 bg-[#f3efe6]/90 md:flex">
+            <SidebarBody user={user} />
+          </aside>
+        </>
+      ) : null}
+
+      {isDesktop === false ? (
+        <div className="fixed inset-x-0 top-0 z-30 flex items-center justify-between border-b border-teal-900/10 bg-[#f3efe6]/95 px-4 py-3 backdrop-blur">
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-800 text-sand-50">
+              <Sparkles className="h-4 w-4" />
+            </div>
+            <span className="font-display text-lg text-ink">ApplyPilot</span>
+          </div>
+          <button
+            aria-label="Open menu"
+            className="rounded-xl p-2 hover:bg-teal-900/5"
+            onClick={() => setOpen(true)}
+          >
+            <Menu className="h-5 w-5 text-ink" />
+          </button>
         </div>
-        <button
-          aria-label="Open menu"
-          className="rounded-xl p-2 hover:bg-teal-900/5"
-          onClick={() => setOpen(true)}
-        >
-          <Menu className="h-5 w-5 text-ink" />
-        </button>
-      </div>
+      ) : null}
 
-      <aside className="hidden h-screen w-64 shrink-0 flex-col border-r border-teal-900/10 bg-[#f3efe6]/90 md:sticky md:top-0 md:flex">
-        <SidebarBody user={user} />
-      </aside>
+      {isDesktop === true ? (
+        <aside className="sticky top-0 flex h-screen w-64 shrink-0 flex-col border-r border-teal-900/10 bg-[#f3efe6]/90">
+          <SidebarBody user={user} />
+        </aside>
+      ) : null}
 
-      {open ? (
+      {(isDesktop === false || isDesktop === null) && open ? (
         <div className="fixed inset-0 z-40 md:hidden">
           <button
             className="absolute inset-0 bg-ink/40"
