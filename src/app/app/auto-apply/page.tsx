@@ -181,11 +181,19 @@ export default function AutoApplyPage() {
       }
       setLastRun(data.applied || []);
       setCredits(data.credits ?? credits);
-      setMessage(
-        data.applied?.length
-          ? `Queued/applied ${data.applied.length} role(s). This is a simulator — no external sites were contacted.`
-          : "No matching jobs found for your criteria.",
-      );
+      if (data.applied?.length) {
+        setMessage(
+          `Queued/applied ${data.applied.length} role(s). This is a simulator — no external sites were contacted.`,
+        );
+      } else {
+        const skipped = data.meta?.skippedApplied ?? 0;
+        const filtered = data.meta?.skippedFilters ?? 0;
+        setMessage(
+          skipped > 0
+            ? `No new matches — you already have applications on ${skipped} role(s); ${filtered} more were filtered by prefs/match score. Widen roles, lower min match, or clear tracker entries to continue.`
+            : "No matching jobs found for your criteria. Try broadening roles/locations or lowering the min match score.",
+        );
+      }
       await refresh();
     } finally {
       setBusy(null);

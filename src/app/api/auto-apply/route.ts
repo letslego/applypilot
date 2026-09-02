@@ -234,6 +234,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       applied: results,
       credits: fresh?.credits ?? 0,
+      meta: {
+        candidates: candidates.length,
+        skippedApplied,
+        skippedFilters,
+        totalJobs: jobs.length,
+      },
     });
   }
 
