@@ -32,6 +32,24 @@ Open http://localhost:3000
 
 Auto-Apply **simulates** submissions ethically (no LinkedIn/Indeed scraping). Optional live LLM via `OPENAI_API_KEY`.
 
-## Architecture
+## Job data sources
 
-See `PLAN.md`. Stack: Next.js App Router, Prisma + SQLite, Tailwind, TypeScript.
+AIApply markets aggregation from **LinkedIn, Indeed, Glassdoor**, and **company career / ATS pages** (Greenhouse, Lever, Workday, Ashby, …).
+
+ApplyPilot does **not** scrape LinkedIn/Indeed/Glassdoor (ToS). Live ingest pulls the same company postings via public APIs:
+
+| Source | Endpoint style |
+|--------|----------------|
+| Greenhouse | `boards-api.greenhouse.io/v1/boards/{token}/jobs` |
+| Ashby | `api.ashbyhq.com/posting-api/job-board/{org}` |
+| Remotive | `remotive.com/api/remote-jobs` |
+| RemoteOK | `remoteok.com/api` |
+| Arbeitnow | `arbeitnow.com/api/job-board-api` |
+
+```bash
+npm run jobs:sync:quick   # fast subset
+npm run jobs:sync         # fuller pull
+```
+
+Or click **Sync live jobs** on `/app/jobs` while logged in.
+

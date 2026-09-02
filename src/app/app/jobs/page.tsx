@@ -29,6 +29,9 @@ export default function JobsPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [pending, startTransition] = useTransition();
+  const [syncing, setSyncing] = useState(false);
+  const [syncMsg, setSyncMsg] = useState<string | null>(null);
+  const [sources, setSources] = useState<{ source: string; count: number }[]>([]);
 
   const loadJobs = useCallback(async (params?: {
     q?: string;
@@ -59,11 +62,46 @@ export default function JobsPage() {
     setLoading(false);
   }, [q, remote, seniority, minSalary]);
 
+  async function loadSourceStats() {
+    const res = await fetch("/api/jobs/sync");
+    if (!res.ok) return;
+    const data = await res.json();
+    setSources(data.bySource || []);
+  }
+
   useEffect(() => {
     void loadJobs();
+    void loadSourceStats();
     // initial load only
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  async function syncLive() {
+    setSyncing(true);
+    setSyncMsg(null);
+    setError(null);
+    try {
+      const res = await fetch("/api/jobs/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ quick: true }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Sync failed");
+        return;
+      }
+      setSyncMsg(
+        `Synced ${data.upserted} postings from ${data.sources} sources (${data.totalJobs} total in board). Greenhouse/Ashby career pages + Remotive/RemoteOK — not LinkedIn/Indeed scrapes.`,
+      );
+      await loadJobs();
+      await loadSourceStats();
+    } catch {
+      setError("Sync failed — check network egress.");
+    } finally {
+      setSyncing(false);
+    }
+  }
 
   function onSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -86,8 +124,27 @@ export default function JobsPage() {
     <div>
       <PageHeader
         title="Job board"
-        subtitle="Search roles matched to your master resume. Filter by remote mode, seniority, and salary floor."
+        subtitle="Live roles from public company ATS boards (Greenhouse, Ashby) and open feeds (Remotive, RemoteOK, Arbeitnow) — the same career-page inventory AIApply aggregates, without scraping LinkedIn/Indeed."
+        actions={
+          <Button variant="secondary" onClick={syncLive} disabled={syncing}>
+            {syncing ? "Syncing…" : "Sync live jobs"}
+          </Button>
+        }
       />
+
+      {sources.length ? (
+        <div className="mb-4 flex flex-wrap gap-2 text-xs text-ink/55">
+          {sources.map((s) => (
+            <span
+              key={s.source}
+              className="rounded-lg bg-white/70 px-2 py-1 border border-teal-900/8"
+            >
+              {s.source}: {s.count}
+            </span>
+          ))}
+        </div>
+      ) : null}
+      {syncMsg ? <p className="mb-4 text-sm text-teal-800">{syncMsg}</p> : null}
 
       <Card className="mb-8">
         <form onSubmit={onSearch} className="space-y-4">
