@@ -112,22 +112,42 @@ export async function POST(req: NextRequest) {
 
     const jobs = await prisma.job.findMany({ orderBy: { postedAt: "desc" } });
     const candidates = [];
+    let skippedApplied = 0;
+    let skippedFilters = 0;
     for (const job of jobs) {
-      if (appliedIds.has(job.id)) continue;
-      if (exclude.has(job.company.toLowerCase())) continue;
-      if (prefs.remoteOnly && job.remoteType !== "remote") continue;
-      if (prefs.salaryMin && (job.salaryMax || 0) < prefs.salaryMin) continue;
+      if (appliedIds.has(job.id)) {
+        skippedApplied += 1;
+        continue;
+      }
+      if (exclude.has(job.company.toLowerCase())) {
+        skippedFilters += 1;
+        continue;
+      }
+      if (prefs.remoteOnly && job.remoteType !== "remote") {
+        skippedFilters += 1;
+        continue;
+      }
+      if (prefs.salaryMin && (job.salaryMax || 0) < prefs.salaryMin) {
+        skippedFilters += 1;
+        continue;
+      }
       if (roles.length) {
         const ok = roles.some((r) =>
           job.title.toLowerCase().includes(r.toLowerCase()),
         );
-        if (!ok) continue;
+        if (!ok) {
+          skippedFilters += 1;
+          continue;
+        }
       }
       if (locations.length) {
         const ok = locations.some((l) =>
           job.location.toLowerCase().includes(l.toLowerCase()),
         );
-        if (!ok && !job.location.toLowerCase().includes("remote")) continue;
+        if (!ok && !job.location.toLowerCase().includes("remote")) {
+          skippedFilters += 1;
+          continue;
+        }
       }
       const skills = JSON.parse(job.skills) as string[];
       const match = computeMatch({
@@ -140,7 +160,10 @@ export async function POST(req: NextRequest) {
         salaryMin: prefs.salaryMin,
         jobSalaryMax: job.salaryMax,
       });
-      if (match.score < prefs.minMatchScore) continue;
+      if (match.score < prefs.minMatchScore) {
+        skippedFilters += 1;
+        continue;
+      }
       candidates.push({ job, match, skills });
     }
 
