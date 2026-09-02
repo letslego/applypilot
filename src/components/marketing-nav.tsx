@@ -14,11 +14,14 @@ export function MarketingNav() {
         </span>
       </Link>
       <nav className="hidden items-center gap-8 text-sm text-ink/70 md:flex">
-        <Link href="/#features" className="hover:text-ink">
+        <Link href="/features" className="hover:text-ink">
           Features
         </Link>
         <Link href="/#how" className="hover:text-ink">
           How it works
+        </Link>
+        <Link href="/#faq" className="hover:text-ink">
+          FAQ
         </Link>
         <Link href="/pricing" className="hover:text-ink">
           Pricing
